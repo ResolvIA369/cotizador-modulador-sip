@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useStore } from '@/shared/store/useStore';
-import { Square, DoorOpen, Maximize, Trash2, X, Settings } from 'lucide-react';
+import { Square, DoorOpen, Maximize, Trash2, X } from 'lucide-react';
 import type { FacadeSide } from '@/shared/types';
 
 interface FacadeViewProps {
@@ -269,52 +269,48 @@ const FacadeView = ({ type, data, scale = 20, onMaximize, isMaximized = false }:
                     ))}
                 </svg>
             </div>
-            {/* Opening Precision Controls (Sliders) */}
-            {activeOpeningId && isVisible && (
-                <div className="absolute bottom-4 left-4 right-4 z-30 bg-white/95 backdrop-blur p-4 rounded-3xl border border-slate-200 shadow-2xl space-y-3 animate-in fade-in slide-in-from-bottom-2">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <Settings size={12} className="text-cyan-500" />
-                            Ajuste de Abertura
-                        </span>
-                        <button onClick={() => setActiveOpeningId(null)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600">
-                            <X size={14} />
+            {/* Opening Compact Controls */}
+            {activeOpeningId && isVisible && (() => {
+                const op = openings.find((o: any) => o.id === activeOpeningId);
+                if (!op) return null;
+                return (
+                    <div className="absolute bottom-2 left-2 right-2 z-30 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-2 py-1.5 rounded-lg border border-slate-200 shadow-md">
+                        <span className="text-[8px] font-black text-slate-400 uppercase shrink-0">{op.type === 'door' ? 'Puerta' : 'Ventana'}</span>
+                        <div className="flex items-center gap-0.5">
+                            <span className="text-[8px] text-slate-400 font-bold">X</span>
+                            <input type="number" step="0.05" value={op.x.toFixed(2)}
+                                onChange={(e) => updateOpening(op.id, { x: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
+                            />
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                            <span className="text-[8px] text-slate-400 font-bold">Y</span>
+                            <input type="number" step="0.05" value={op.y.toFixed(2)}
+                                onChange={(e) => updateOpening(op.id, { y: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
+                            />
+                        </div>
+                        <div className="w-px h-4 bg-slate-200" />
+                        <div className="flex items-center gap-0.5">
+                            <span className="text-[8px] text-slate-400 font-bold">An</span>
+                            <input type="number" step="0.1" value={op.width.toFixed(2)}
+                                onChange={(e) => updateOpening(op.id, { width: Math.max(0.4, parseFloat(e.target.value) || 0.4) })}
+                                className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
+                            />
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                            <span className="text-[8px] text-slate-400 font-bold">Al</span>
+                            <input type="number" step="0.1" value={op.height.toFixed(2)}
+                                onChange={(e) => updateOpening(op.id, { height: Math.max(0.4, parseFloat(e.target.value) || 0.4) })}
+                                className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
+                            />
+                        </div>
+                        <button onClick={() => setActiveOpeningId(null)} className="p-0.5 text-slate-300 hover:text-slate-600 transition-colors ml-auto shrink-0">
+                            <X size={12} />
                         </button>
                     </div>
-                    {(() => {
-                        const op = openings.find((o: any) => o.id === activeOpeningId);
-                        if (!op) return null;
-                        const maxW = wallWidth - op.width;
-                        const maxHVal = Math.max(h1, h2) - op.height;
-                        return (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase tracking-tight mb-1">
-                                        <span>Posicion X (Horizontal)</span>
-                                        <span className="text-cyan-600 font-mono">{op.x.toFixed(2)}m</span>
-                                    </div>
-                                    <input
-                                        type="range" min="0" max={maxW} step="0.05" value={op.x}
-                                        onChange={(e) => updateOpening(op.id, { x: parseFloat(e.target.value) })}
-                                        className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase tracking-tight mb-1">
-                                        <span>Posicion Y (Vertical)</span>
-                                        <span className="text-cyan-600 font-mono">{op.y.toFixed(2)}m</span>
-                                    </div>
-                                    <input
-                                        type="range" min="0" max={maxHVal} step="0.05" value={op.y}
-                                        onChange={(e) => updateOpening(op.id, { y: parseFloat(e.target.value) })}
-                                        className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                                    />
-                                </div>
-                            </div>
-                        );
-                    })()}
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 };
