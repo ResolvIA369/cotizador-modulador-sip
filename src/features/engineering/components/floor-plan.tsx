@@ -113,6 +113,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
     const [tempMeasurement, setTempMeasurement] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null); // { start: {x,y}, end: {x,y} }
     const [tempWall, setTempWall] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null); // { start: {x,y}, end: {x,y} }
     const [draggingWallId, setDraggingWallId] = useState<string | null>(null);
+    const [draggingOpeningId, setDraggingOpeningId] = useState<string | null>(null);
     const [activeMeasurementId, setActiveMeasurementId] = useState<string | null>(null);
     const SNAP_VALUE = 40;
 
@@ -335,8 +336,41 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
         }
 
         const isOpeningClick = (e.target as HTMLElement).closest('[data-opening-id]');
-        if (isOpeningClick) {
-            setActiveOpeningId((isOpeningClick as HTMLElement).getAttribute('data-opening-id'));
+        if (isOpeningClick && !isPanning && !isMeasuring) {
+            const oid = (isOpeningClick as HTMLElement).getAttribute('data-opening-id');
+            setActiveOpeningId(oid);
+            setDraggingOpeningId(oid);
+            setIsDragging(true);
+
+            const openingObj = openings.find((o: any) => o.id === oid);
+            if (!openingObj) return;
+            const initialX = openingObj.x;
+            const side = openingObj.side;
+            const isNS = side === 'Norte' || side === 'Sur';
+            const wallLen = isNS ? w : l;
+
+            const onMoveOpening = (me: MouseEvent) => {
+                const cur = getSVGCoords(me.clientX, me.clientY, true);
+                const ref = getSVGCoords(startCoords.x * 0 + e.clientX, startCoords.y * 0 + e.clientY, true); // unused, use delta
+                void ref;
+                // Calculate position along wall from SVG coords
+                let newX: number;
+                if (side === 'Norte') newX = initialX + (cur.x - startCoords.x) / BASE_SCALE;
+                else if (side === 'Sur') newX = initialX - (cur.x - startCoords.x) / BASE_SCALE;
+                else if (side === 'Este') newX = initialX + (cur.y - startCoords.y) / BASE_SCALE;
+                else newX = initialX - (cur.y - startCoords.y) / BASE_SCALE;
+
+                newX = Math.max(0, Math.min(wallLen - openingObj.width, newX));
+                updateOpening(oid!, { x: newX });
+            };
+            const onUpOpening = () => {
+                setIsDragging(false);
+                setDraggingOpeningId(null);
+                window.removeEventListener('mousemove', onMoveOpening);
+                window.removeEventListener('mouseup', onUpOpening);
+            };
+            window.addEventListener('mousemove', onMoveOpening);
+            window.addEventListener('mouseup', onUpOpening);
             return;
         }
 
@@ -598,7 +632,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                     key={o.id}
                     transform={`translate(${finalX}, ${finalY}) rotate(${Math.atan2(dy, dx) * 180 / Math.PI})`}
                     onClick={(e) => { e.stopPropagation(); setActiveOpeningId(o.id); }}
-                    className="cursor-pointer"
+                    className="cursor-move"
                     data-opening-id={o.id}
                 >
                     <rect
@@ -700,22 +734,9 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             <div
                 ref={containerRef}
                 className="flex-1 bg-slate-50 relative overflow-hidden"
-                style={{ cursor: isSpaceHeld ? (isDragging ? 'grabbing' : 'grab') : 'crosshair' }}
+                style={{ cursor: 'none' }}
                 onMouseDown={handleMouseDown}
             >
-                <style>
-                    {`
-                        .cursor-grab { cursor: grab !important; }
-                        .cursor-grabbing { cursor: grabbing !important; }
-                        /* Hand cursor hotspot at fingertips (12, 0) */
-                        [style*="cursor: grab"] {
-                            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='black' stroke='white' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5'/%3E%3Cpath d='M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v10'/%3E%3Cpath d='M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8'/%3E%3Cpath d='M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15'/%3E%3C/svg%3E") 12 0, grab !important;
-                        }
-                        [style*="cursor: grabbing"] {
-                            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='black' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5'/%3E%3Cpath d='M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v10'/%3E%3Cpath d='M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8'/%3E%3Cpath d='M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15'/%3E%3C/svg%3E") 12 0, grabbing !important;
-                        }
-                    `}
-                </style>
                 <svg width="100%" height="100%" viewBox="0 0 800 600">
                     <defs>
                         <pattern id="grid" width={BASE_SCALE} height={BASE_SCALE} patternUnits="userSpaceOnUse">
@@ -994,7 +1015,6 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                                                 data-wall-id={wall.id}
                                             />
                                             {renderWoodSpacers(startX, startY, endX, endY)}
-                                            {renderDimension(startX, startY - (wall.isVertical ? 0 : 20), endX, endY - (wall.isVertical ? 0 : 20), Number(length).toFixed(2), isActive ? "#06b6d4" : "#991b1b")}
 
                                             {/* Visual Guidelines to exterior walls when active */}
                                             {isActive && (
