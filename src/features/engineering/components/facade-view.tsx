@@ -278,14 +278,14 @@ const FacadeView = ({ type, data, scale = 20, onMaximize, isMaximized = false }:
                         <span className="text-[8px] font-black text-slate-400 uppercase shrink-0">{op.type === 'door' ? 'Puerta' : 'Ventana'}</span>
                         <div className="flex items-center gap-0.5">
                             <span className="text-[8px] text-slate-400 font-bold">X</span>
-                            <input type="number" step="0.05" value={op.x.toFixed(2)}
+                            <input type="number" step="0.01" value={op.x.toFixed(2)}
                                 onChange={(e) => updateOpening(op.id, { x: Math.max(0, parseFloat(e.target.value) || 0) })}
                                 className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
                             />
                         </div>
                         <div className="flex items-center gap-0.5">
                             <span className="text-[8px] text-slate-400 font-bold">Y</span>
-                            <input type="number" step="0.05" value={op.y.toFixed(2)}
+                            <input type="number" step="0.01" value={op.y.toFixed(2)}
                                 onChange={(e) => updateOpening(op.id, { y: Math.max(0, parseFloat(e.target.value) || 0) })}
                                 className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
                             />
@@ -293,14 +293,14 @@ const FacadeView = ({ type, data, scale = 20, onMaximize, isMaximized = false }:
                         <div className="w-px h-4 bg-slate-200" />
                         <div className="flex items-center gap-0.5">
                             <span className="text-[8px] text-slate-400 font-bold">An</span>
-                            <input type="number" step="0.1" value={op.width.toFixed(2)}
+                            <input type="number" step="0.01" value={op.width.toFixed(2)}
                                 onChange={(e) => updateOpening(op.id, { width: Math.max(0.4, parseFloat(e.target.value) || 0.4) })}
                                 className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
                             />
                         </div>
                         <div className="flex items-center gap-0.5">
                             <span className="text-[8px] text-slate-400 font-bold">Al</span>
-                            <input type="number" step="0.1" value={op.height.toFixed(2)}
+                            <input type="number" step="0.01" value={op.height.toFixed(2)}
                                 onChange={(e) => updateOpening(op.id, { height: Math.max(0.4, parseFloat(e.target.value) || 0.4) })}
                                 className="w-12 h-5 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded outline-none focus:border-cyan-400"
                             />

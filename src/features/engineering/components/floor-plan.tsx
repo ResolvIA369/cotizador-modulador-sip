@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '@/shared/store/useStore';
 import { calculateGeometry } from '@/shared/lib/calculations';
-import { Plus, Minus, RotateCcw, PenTool, Trash2, Repeat, Layout, X, ChevronDown, ChevronUp, Ruler, Undo2, Redo2, Hand } from 'lucide-react';
+import { Plus, Minus, RotateCcw, PenTool, Trash2, Repeat, Layout, X, ChevronDown, ChevronUp, Ruler, Undo2, Redo2 } from 'lucide-react';
 
 interface RangeControlProps {
     label: string;
@@ -108,8 +108,8 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
     const [isDragging, setIsDragging] = useState(false);
     const [showPanels, setShowPanels] = useState(true);
     const [minimizedPanels, setMinimizedPanels] = useState<Record<string, boolean>>({});
-    const [mode, setMode] = useState('draw'); // 'draw' (default: draw walls + move walls), 'measure'
     const [isSpaceHeld, setIsSpaceHeld] = useState(false);
+    const [isShiftHeld, setIsShiftHeld] = useState(false);
     const [tempMeasurement, setTempMeasurement] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null); // { start: {x,y}, end: {x,y} }
     const [tempWall, setTempWall] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null); // { start: {x,y}, end: {x,y} }
     const [draggingWallId, setDraggingWallId] = useState<string | null>(null);
@@ -158,18 +158,20 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
         return () => el.removeEventListener('wheel', handleWheel);
     }, []);
 
-    // Space key for panning
+    // Space/Shift key tracking
     useEffect(() => {
-        const handleSpaceDown = (e: KeyboardEvent) => {
+        const handleDown = (e: KeyboardEvent) => {
             if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
             if (e.code === 'Space' && !e.repeat) { e.preventDefault(); setIsSpaceHeld(true); }
+            if (e.key === 'Shift') { setIsShiftHeld(true); }
         };
-        const handleSpaceUp = (e: KeyboardEvent) => {
+        const handleUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') { setIsSpaceHeld(false); }
+            if (e.key === 'Shift') { setIsShiftHeld(false); }
         };
-        window.addEventListener('keydown', handleSpaceDown);
-        window.addEventListener('keyup', handleSpaceUp);
-        return () => { window.removeEventListener('keydown', handleSpaceDown); window.removeEventListener('keyup', handleSpaceUp); };
+        window.addEventListener('keydown', handleDown);
+        window.addEventListener('keyup', handleUp);
+        return () => { window.removeEventListener('keydown', handleDown); window.removeEventListener('keyup', handleUp); };
     }, []);
 
     // Keyboard Delete Functionality
@@ -322,8 +324,9 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
 
         const isWallClick = (e.target as HTMLElement).getAttribute('data-wall-id');
         const isMeasureClick = (e.target as HTMLElement).getAttribute('data-measure-id');
-        const isPanning = isSpaceHeld || e.button === 1 || mode === 'pan'; // Space held or middle-click or pan mode
-        const startCoords = getSVGCoords(e.clientX, e.clientY, mode === 'measure' || mode === 'draw');
+        const isPanning = isSpaceHeld || e.button === 1;
+        const isMeasuring = e.shiftKey;
+        const startCoords = getSVGCoords(e.clientX, e.clientY, true);
 
         let localMeasurement: { start: { x: number; y: number }; end: { x: number; y: number } } | null = null;
         let localWallData: { start: { x: number; y: number }; end: { x: number; y: number } } | null = null;
@@ -339,8 +342,8 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             return;
         }
 
-        // Wall click = drag the wall (in draw mode only)
-        if (isWallClick && mode !== 'measure' && !isPanning) {
+        // Wall click = drag the wall
+        if (isWallClick && !isMeasuring && !isPanning) {
             setDraggingWallId(isWallClick);
             setActiveInteriorWallId(isWallClick);
             setIsDragging(true);
@@ -355,14 +358,13 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             }
 
             if (isPanning) {
-                // Panning mode (Space held or middle-click)
                 setIsDragging(true);
-            } else if (mode === 'measure') {
+            } else if (isMeasuring) {
                 localMeasurement = { start: startCoords, end: startCoords };
                 setTempMeasurement(localMeasurement);
                 setIsDragging(true);
             } else {
-                // Default "draw" mode: click+drag on empty canvas draws a wall
+                // Default: click+drag draws a wall
                 localWallData = { start: startCoords, end: startCoords };
                 setTempWall(localWallData);
                 setIsDragging(true);
@@ -377,7 +379,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
 
         // Initial wall position for dragging
         let initialWallPos: { x: number; y: number } | null = null;
-        if (isWallClick && mode !== 'measure' && !isPanning) {
+        if (isWallClick && !isMeasuring && !isPanning) {
             const wall = interiorWalls.find((w: any) => w.id === isWallClick);
             if (wall) initialWallPos = { x: (wall as any).x, y: (wall as any).y };
         }
@@ -400,7 +402,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                     x: startPan.x + (moveEvent.clientX - startX),
                     y: startPan.y + (moveEvent.clientY - startY)
                 });
-            } else if (mode === 'measure') {
+            } else if (isMeasuring) {
                 const currentCoords = getSVGCoords(moveEvent.clientX, moveEvent.clientY, true);
                 const dx = Math.abs(currentCoords.x - startCoords.x);
                 const dy = Math.abs(currentCoords.y - startCoords.y);
@@ -426,7 +428,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             setIsDragging(false);
             setDraggingWallId(null);
 
-            if (mode === 'measure' && localMeasurement) {
+            if (isMeasuring && localMeasurement) {
                 const distX = localMeasurement.end.x - localMeasurement.start.x;
                 const distY = localMeasurement.end.y - localMeasurement.start.y;
                 const dist = Math.sqrt(distX * distX + distY * distY) / BASE_SCALE;
@@ -436,7 +438,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                 setTempMeasurement(null);
             }
 
-            if (!isPanning && mode !== 'measure' && localWallData) {
+            if (!isPanning && !isMeasuring && localWallData) {
                 const dx = Math.abs(localWallData.end.x - localWallData.start.x);
                 const dy = Math.abs(localWallData.end.y - localWallData.start.y);
                 const isVertical = dy > dx;
@@ -634,27 +636,14 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             {/* TOOLBAR */}
             {!shouldHideUI && (
                 <div className={`absolute ${isExpanded ? 'top-6' : 'top-3'} left-1/2 -translate-x-1/2 z-50 flex bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-xl gap-1.5 items-center`}>
-                    <button
-                        onClick={() => { setMode('draw'); setTempMeasurement(null); }}
-                        className={`p-2 rounded-lg transition-all ${mode === 'draw' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
-                        title="Dibujar / Mover tabiques"
-                    >
-                        <PenTool size={16} />
-                    </button>
-                    <button
-                        onClick={() => { setMode('pan'); setTempMeasurement(null); }}
-                        className={`p-2 rounded-lg transition-all ${mode === 'pan' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
-                        title="Paneo (mover lienzo)"
-                    >
-                        <Hand size={16} />
-                    </button>
-                    <button
-                        onClick={() => { setMode(mode === 'measure' ? 'draw' : 'measure'); setTempMeasurement(null); }}
-                        className={`p-2 rounded-lg transition-all ${mode === 'measure' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
-                        title="Medir"
-                    >
-                        <Ruler size={16} />
-                    </button>
+                    <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                        <PenTool size={12} className="text-slate-500" />
+                        <span className="hidden sm:inline">Dibujar</span>
+                        <span className="text-slate-300 mx-0.5">|</span>
+                        <span className="text-[7px]">Shift = Medir</span>
+                        <span className="text-slate-300 mx-0.5">|</span>
+                        <span className="text-[7px]">Espacio = Paneo</span>
+                    </div>
                     <div className="w-px h-5 bg-slate-200"></div>
                     <button
                         onClick={() => {
@@ -690,8 +679,8 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                     >
                         <Layout size={14} />
                     </button>
-                    {isSpaceHeld && (
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1">Paneo</span>
+                    {isShiftHeld && (
+                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider px-1 flex items-center gap-1"><Ruler size={10} /> Midiendo</span>
                     )}
                 </div>
             )}
@@ -700,7 +689,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             <div
                 ref={containerRef}
                 className="flex-1 bg-slate-50 relative overflow-hidden"
-                style={{ cursor: (isSpaceHeld || mode === 'pan') ? (isDragging ? 'grabbing' : 'grab') : 'crosshair' }}
+                style={{ cursor: isSpaceHeld ? (isDragging ? 'grabbing' : 'grab') : 'crosshair' }}
                 onMouseDown={handleMouseDown}
             >
                 <style>
@@ -1217,9 +1206,9 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                                     if (!o) return null;
                                     return (
                                         <div className="space-y-2">
-                                            <RangeControl label="Ancho" value={(o as any).width || ((o as any).type === 'door' ? 0.9 : 1.2)} onChange={(v) => updateOpening(activeOpeningId, { width: v })} min={0.4} max={5} step={0.1} unit="m" />
-                                            <RangeControl label="Alto" value={(o as any).height || ((o as any).type === 'door' ? 2.1 : 1.2)} onChange={(v) => updateOpening(activeOpeningId, { height: v })} min={0.4} max={3} step={0.1} unit="m" />
-                                            <RangeControl label="Pos. X" value={(o as any).x || 0} onChange={(v) => updateOpening(activeOpeningId, { x: v })} min={0} max={15} step={0.1} unit="m" />
+                                            <RangeControl label="Ancho" value={(o as any).width || ((o as any).type === 'door' ? 0.9 : 1.2)} onChange={(v) => updateOpening(activeOpeningId, { width: v })} min={0.4} max={5} step={0.01} unit="m" />
+                                            <RangeControl label="Alto" value={(o as any).height || ((o as any).type === 'door' ? 2.1 : 1.2)} onChange={(v) => updateOpening(activeOpeningId, { height: v })} min={0.4} max={3} step={0.01} unit="m" />
+                                            <RangeControl label="Pos. X" value={(o as any).x || 0} onChange={(v) => updateOpening(activeOpeningId, { x: v })} min={0} max={15} step={0.01} unit="m" />
                                             <div className="text-[9px] text-slate-400 italic pt-1">
                                                 {(o as any).type === 'door' ? 'Puerta' : 'Ventana'} — {(o as any).side}
                                             </div>
