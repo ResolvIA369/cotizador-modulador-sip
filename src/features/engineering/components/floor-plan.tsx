@@ -335,9 +335,9 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             return;
         }
 
-        // In 'pan' mode: click on openings/walls to select & drag them
+        // Click on openings: always select, drag only in pan mode
         const isOpeningClick = (e.target as HTMLElement).closest('[data-opening-id]');
-        if (isOpeningClick && mode === 'pan') {
+        if (isOpeningClick) {
             const oid = (isOpeningClick as HTMLElement).getAttribute('data-opening-id');
             setActiveOpeningId(oid);
             setDraggingOpeningId(oid);
@@ -372,8 +372,8 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             return;
         }
 
-        // In 'pan' mode: click on walls to select & drag them
-        if (isWallClick && mode === 'pan') {
+        // Click on walls: always select, drag only in pan mode
+        if (isWallClick) {
             setDraggingWallId(isWallClick);
             setActiveInteriorWallId(isWallClick);
             setIsDragging(true);
@@ -409,7 +409,7 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
 
         // Initial wall position for dragging
         let initialWallPos: { x: number; y: number } | null = null;
-        if (isWallClick && mode === 'pan') {
+        if (isWallClick) {
             const wall = interiorWalls.find((w: any) => w.id === isWallClick);
             if (wall) initialWallPos = { x: (wall as any).x, y: (wall as any).y };
         }
@@ -732,10 +732,9 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             <div
                 ref={containerRef}
                 className="flex-1 bg-slate-50 relative overflow-hidden"
-                style={{ cursor: 'none' }}
                 onMouseDown={handleMouseDown}
             >
-                <svg width="100%" height="100%" viewBox="0 0 800 600">
+                <svg width="100%" height="100%" viewBox="0 0 800 600" style={{ cursor: 'none' }}>
                     <defs>
                         <pattern id="grid" width={BASE_SCALE} height={BASE_SCALE} patternUnits="userSpaceOnUse">
                             <path d={`M ${BASE_SCALE} 0 L 0 0 0 ${BASE_SCALE}`} fill="none" stroke={isPrint ? "transparent" : "#e2e8f0"} strokeWidth="1" />
