@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '@/shared/store/useStore';
 import { calculateGeometry } from '@/shared/lib/calculations';
-import { Plus, Minus, RotateCcw, PenTool, Trash2, Repeat, Layout, X, ChevronDown, ChevronUp, Ruler, Undo2, Redo2 } from 'lucide-react';
+import { Plus, Minus, RotateCcw, PenTool, Hand, Trash2, Repeat, Layout, X, ChevronDown, ChevronUp, Ruler, Undo2, Redo2 } from 'lucide-react';
 
 interface RangeControlProps {
     label: string;
@@ -108,8 +108,8 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
     const [isDragging, setIsDragging] = useState(false);
     const [showPanels, setShowPanels] = useState(true);
     const [minimizedPanels, setMinimizedPanels] = useState<Record<string, boolean>>({});
+    const [mode, setMode] = useState<'draw' | 'measure' | 'pan'>('draw');
     const [isSpaceHeld, setIsSpaceHeld] = useState(false);
-    const [isShiftHeld, setIsShiftHeld] = useState(false);
     const [tempMeasurement, setTempMeasurement] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null); // { start: {x,y}, end: {x,y} }
     const [tempWall, setTempWall] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null); // { start: {x,y}, end: {x,y} }
     const [draggingWallId, setDraggingWallId] = useState<string | null>(null);
@@ -158,16 +158,14 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
         return () => el.removeEventListener('wheel', handleWheel);
     }, []);
 
-    // Space/Shift key tracking
+    // Space key for panning
     useEffect(() => {
         const handleDown = (e: KeyboardEvent) => {
             if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
             if (e.code === 'Space' && !e.repeat) { e.preventDefault(); setIsSpaceHeld(true); }
-            if (e.key === 'Shift') { setIsShiftHeld(true); }
         };
         const handleUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') { setIsSpaceHeld(false); }
-            if (e.key === 'Shift') { setIsShiftHeld(false); }
         };
         window.addEventListener('keydown', handleDown);
         window.addEventListener('keyup', handleUp);
@@ -324,8 +322,8 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
 
         const isWallClick = (e.target as HTMLElement).getAttribute('data-wall-id');
         const isMeasureClick = (e.target as HTMLElement).getAttribute('data-measure-id');
-        const isPanning = isSpaceHeld || e.button === 1;
-        const isMeasuring = e.shiftKey;
+        const isPanning = isSpaceHeld || e.button === 1 || mode === 'pan';
+        const isMeasuring = mode === 'measure';
         const startCoords = getSVGCoords(e.clientX, e.clientY, true);
 
         let localMeasurement: { start: { x: number; y: number }; end: { x: number; y: number } } | null = null;
@@ -636,14 +634,27 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
             {/* TOOLBAR */}
             {!shouldHideUI && (
                 <div className={`absolute ${isExpanded ? 'top-6' : 'top-3'} left-1/2 -translate-x-1/2 z-50 flex bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-xl gap-1.5 items-center`}>
-                    <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                        <PenTool size={12} className="text-slate-500" />
-                        <span className="hidden sm:inline">Dibujar</span>
-                        <span className="text-slate-300 mx-0.5">|</span>
-                        <span className="text-[7px]">Shift = Medir</span>
-                        <span className="text-slate-300 mx-0.5">|</span>
-                        <span className="text-[7px]">Espacio = Paneo</span>
-                    </div>
+                    <button
+                        onClick={() => { setMode('draw'); setTempMeasurement(null); }}
+                        className={`p-2 rounded-lg transition-all ${mode === 'draw' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title="Dibujar / Mover tabiques"
+                    >
+                        <PenTool size={16} />
+                    </button>
+                    <button
+                        onClick={() => { setMode('pan'); setTempMeasurement(null); }}
+                        className={`p-2 rounded-lg transition-all ${mode === 'pan' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title="Paneo (mover lienzo)"
+                    >
+                        <Hand size={16} />
+                    </button>
+                    <button
+                        onClick={() => { setMode(mode === 'measure' ? 'draw' : 'measure'); setTempMeasurement(null); }}
+                        className={`p-2 rounded-lg transition-all ${mode === 'measure' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title="Medir"
+                    >
+                        <Ruler size={16} />
+                    </button>
                     <div className="w-px h-5 bg-slate-200"></div>
                     <button
                         onClick={() => {
@@ -679,8 +690,8 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                     >
                         <Layout size={14} />
                     </button>
-                    {isShiftHeld && (
-                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider px-1 flex items-center gap-1"><Ruler size={10} /> Midiendo</span>
+                    {isSpaceHeld && (
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1">Paneo</span>
                     )}
                 </div>
             )}
