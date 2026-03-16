@@ -111,7 +111,7 @@ const FacadeView = ({ type, data, scale = 20, onMaximize, isMaximized = false }:
         points.push(`0,${h1 * scale}`);
     }
 
-    const svgHeight = Math.max(h1, h2, 2.44) * scale + 40;
+    const svgHeight = Math.max(h1, h2, 2.44) * scale + 60;
     const polygonPoints = points.map(p => {
         const [x, y] = p.split(',').map(Number);
         return `${x},${svgHeight - y - 20}`;
@@ -142,31 +142,30 @@ const FacadeView = ({ type, data, scale = 20, onMaximize, isMaximized = false }:
         <div className={`bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col h-full relative group transition-all duration-300 ${!isVisible ? 'bg-slate-100 ring-1 ring-slate-200' : ''}`}>
 
             {/* Top Badges and Controls */}
-            <div className="absolute top-3 left-3 right-3 z-[40] flex items-center justify-between pointer-events-none">
-                <div className="flex items-center gap-2 pointer-events-auto">
-                    <div className="bg-slate-900/80 backdrop-blur text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-2">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full" />
-                        Fachada {type}
+            <div className="absolute top-2 left-2 right-2 z-[40] flex items-center justify-between pointer-events-none">
+                <div className="flex items-center pointer-events-auto">
+                    <div className="bg-slate-900/80 backdrop-blur text-white px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-md flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                        {type}
                     </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-2 pointer-events-auto">
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-col items-end gap-1 pointer-events-auto">
+                    <div className="flex items-center gap-1">
                         {!isMaximized && !isVisible && (
                             <button
                                 onClick={(e) => { e.stopPropagation(); togglePerimeterVisibility(side); }}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all shadow-lg border-2 bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all shadow-sm border bg-white text-slate-400 border-slate-200 hover:border-slate-300"
                             >
                                 Excluida
-                                <div className="w-2 h-2 rounded-full bg-slate-300" />
                             </button>
                         )}
                         {!isMaximized && isVisible && (
-                            <div className="flex gap-1.5 p-1 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl shadow-xl">
-                                <button onClick={() => addOpening(side, 'window')} title="Anadir Ventana" className="p-2 text-slate-600 hover:text-cyan-500 hover:bg-slate-50 rounded-xl transition-all"><Square size={16} /></button>
-                                <button onClick={() => addOpening(side, 'door')} title="Anadir Puerta" className="p-2 text-slate-600 hover:text-cyan-500 hover:bg-slate-50 rounded-xl transition-all"><DoorOpen size={16} /></button>
-                                <button onClick={onMaximize} title="Maximizar" className="p-2 text-slate-600 hover:text-cyan-500 hover:bg-slate-50 rounded-xl transition-all"><Maximize size={16} /></button>
-                                <button onClick={() => togglePerimeterVisibility(side)} title="Excluir Fachada" className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border-l border-slate-100 ml-1"><Trash2 size={16} /></button>
+                            <div className="flex gap-0.5 p-0.5 bg-white/90 backdrop-blur border border-slate-200 rounded-lg shadow-md">
+                                <button onClick={() => addOpening(side, 'window')} title="Ventana" className="p-1.5 text-slate-500 hover:text-cyan-500 hover:bg-slate-50 rounded-md transition-all"><Square size={13} /></button>
+                                <button onClick={() => addOpening(side, 'door')} title="Puerta" className="p-1.5 text-slate-500 hover:text-cyan-500 hover:bg-slate-50 rounded-md transition-all"><DoorOpen size={13} /></button>
+                                <button onClick={onMaximize} title="Maximizar" className="p-1.5 text-slate-500 hover:text-cyan-500 hover:bg-slate-50 rounded-md transition-all"><Maximize size={13} /></button>
+                                <button onClick={() => togglePerimeterVisibility(side)} title="Excluir" className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all"><Trash2 size={13} /></button>
                             </div>
                         )}
                     </div>
@@ -194,7 +193,7 @@ const FacadeView = ({ type, data, scale = 20, onMaximize, isMaximized = false }:
 
 
 
-            <div className={`flex-1 flex items-center justify-center p-4 bg-slate-50/50 transition-all duration-300 relative ${!isVisible ? 'bg-slate-200/50 grayscale border-dashed border-2 m-4 rounded-xl' : ''}`} onMouseDown={() => isVisible && setActiveOpeningId(null)}>
+            <div className={`flex-1 flex items-center justify-center p-2 bg-slate-50/50 transition-all duration-300 relative ${!isVisible ? 'bg-slate-200/50 grayscale border-dashed border-2 m-2 rounded-xl' : ''}`} onMouseDown={() => isVisible && setActiveOpeningId(null)}>
                 {!isVisible && (
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-100/40 backdrop-blur-[2px] rounded-xl">
                         <div className="bg-rose-600 text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl animate-pulse">
@@ -208,7 +207,7 @@ const FacadeView = ({ type, data, scale = 20, onMaximize, isMaximized = false }:
                         </button>
                     </div>
                 )}
-                <svg width="100%" height="100%" viewBox={`-10 0 ${wallWidth * scale + 20} ${svgHeight}`} preserveAspectRatio="xMidYMid meet" className={!isVisible ? 'opacity-20' : ''}>
+                <svg width="100%" height="100%" viewBox={`-20 -20 ${wallWidth * scale + 40} ${svgHeight + 20}`} preserveAspectRatio="xMidYMid meet" className={!isVisible ? 'opacity-20' : ''}>
                     <defs>
                         <clipPath id={`clip-${type}`}>
                             <polygon points={polygonPoints} />
