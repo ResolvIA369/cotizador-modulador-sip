@@ -638,15 +638,7 @@ const HouseModel = ({ dimensions, openings, facadeConfigs, interiorWalls, showBe
                     const resolution = 0.1;
                     const OVERHANG = 0.3;
 
-                    const roofX0 = -OVERHANG;
-                    const roofZ0 = -OVERHANG;
-                    const roofX1 = W + OVERHANG;
-                    const roofZ1 = L + OVERHANG;
-                    const cols = Math.ceil((roofX1 - roofX0) / resolution);
-                    const rows = Math.ceil((roofZ1 - roofZ0) / resolution);
-
-                    // Roof height: like getPointHeight but allows overhang to continue the slope
-                    // (no clamping to house bounds, no 2.44 minimum, uses dominant profile)
+                    // Roof height using dominant slope profile (eaves continue the slope)
                     const nsHasSlope = facadeConfigs?.Norte?.type !== 'recto' || facadeConfigs?.Sur?.type !== 'recto';
                     const ewHasSlope = facadeConfigs?.Este?.type !== 'recto' || facadeConfigs?.Oeste?.type !== 'recto';
 
@@ -655,75 +647,93 @@ const HouseModel = ({ dimensions, openings, facadeConfigs, interiorWalls, showBe
                         const hS = getWallHeight(W - px, W, facadeConfigs?.Sur);
                         const hW = getWallHeight(L - pz, L, facadeConfigs?.Oeste);
                         const hE = getWallHeight(pz, L, facadeConfigs?.Este);
-
                         const tz = Math.max(0, Math.min(1, pz / (L || 1)));
                         const tx = Math.max(0, Math.min(1, px / (W || 1)));
-
                         const profileNS = hN * (1 - tz) + hS * tz;
                         const profileEW = hW * (1 - tx) + hE * tx;
-
-                        // Use only the sloped profile so eaves continue the slope
                         if (nsHasSlope && !ewHasSlope) return profileNS;
                         if (ewHasSlope && !nsHasSlope) return profileEW;
                         return Math.max(profileNS, profileEW);
                     };
 
-                    // isInsideRoof: allows overhang past exterior, tight recess exclusion
-                    const isInsideRoof = (ax: number, az: number): boolean => {
-                        if (ax < roofX0 - 0.01 || ax > roofX1 + 0.01 || az < roofZ0 - 0.01 || az > roofZ1 + 0.01) return false;
-                        for (const r of recesses) {
-                            if (!r.hideBase) continue;
-                            let insideR = false;
-                            const rw = r.width, rd = r.depth;
-                            // Tight tolerance: exclude recess area but don't eat into house
-                            if (r.side === 'Norte') insideR = (ax >= r.x + 0.05 && ax <= r.x + rw - 0.05 && az <= rd - 0.05);
-                            else if (r.side === 'Sur') insideR = (ax >= W - (r.x + rw) + 0.05 && ax <= W - r.x - 0.05 && az >= L - rd + 0.05);
-                            else if (r.side === 'Este') insideR = (ax >= W - rd + 0.05 && az >= r.x + 0.05 && az <= r.x + rw - 0.05);
-                            else if (r.side === 'Oeste') insideR = (ax <= rd - 0.05 && az >= L - (r.x + rw) + 0.05 && az <= L - r.x - 0.05);
-                            if (insideR) return false;
-                        }
-                        return true;
-                    };
-
-                    const vertices: number[] = [];
-                    const indices: number[] = [];
-
-                    for (let j = 0; j <= rows; j++) {
-                        for (let i = 0; i <= cols; i++) {
-                            const gx = roofX0 + Math.min(roofX1 - roofX0, i * resolution);
-                            const gz = roofZ0 + Math.min(roofZ1 - roofZ0, j * resolution);
-                            const h = getRoofHeight(gx, gz);
-                            vertices.push(gx, h, gz);
-                        }
-                    }
-
-                    for (let j = 0; j < rows; j++) {
-                        for (let i = 0; i < cols; i++) {
-                            const x0 = roofX0 + i * resolution;
-                            const x1 = roofX0 + (i + 1) * resolution;
-                            const z0 = roofZ0 + j * resolution;
-                            const z1 = roofZ0 + (j + 1) * resolution;
-                            if (isInsideRoof(x0, z0) && isInsideRoof(x1, z0) && isInsideRoof(x0, z1) && isInsideRoof(x1, z1)) {
-                                const a = j * (cols + 1) + i;
-                                const b = j * (cols + 1) + (i + 1);
-                                const c = (j + 1) * (cols + 1) + i;
-                                const d = (j + 1) * (cols + 1) + (i + 1);
-                                indices.push(a, c, b);
-                                indices.push(b, c, d);
+                    // Generate a roof mesh for one rectangular section
+                    const makeRoofSection = (
+                        sx0: number, sz0: number, sx1: number, sz1: number,
+                        ohL: number, ohR: number, ohT: number, ohB: number
+                    ): THREE.BufferGeometry | null => {
+                        const gx0 = sx0 - ohL, gz0 = sz0 - ohT;
+                        const gx1 = sx1 + ohR, gz1 = sz1 + ohB;
+                        const c = Math.max(1, Math.ceil((gx1 - gx0) / resolution));
+                        const r = Math.max(1, Math.ceil((gz1 - gz0) / resolution));
+                        const v: number[] = [], idx: number[] = [];
+                        for (let j = 0; j <= r; j++) {
+                            for (let i = 0; i <= c; i++) {
+                                const gx = gx0 + Math.min(gx1 - gx0, i * resolution);
+                                const gz = gz0 + Math.min(gz1 - gz0, j * resolution);
+                                v.push(gx, getRoofHeight(gx, gz), gz);
                             }
                         }
+                        for (let j = 0; j < r; j++) {
+                            for (let i = 0; i < c; i++) {
+                                const a = j * (c + 1) + i;
+                                idx.push(a, a + (c + 1), a + 1);
+                                idx.push(a + 1, a + (c + 1), a + (c + 1) + 1);
+                            }
+                        }
+                        if (idx.length === 0) return null;
+                        const geo = new THREE.BufferGeometry();
+                        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+                        geo.setIndex(idx);
+                        geo.computeVertexNormals();
+                        return geo;
+                    };
+
+                    // Decompose floor plan into non-overlapping rectangular sections
+                    // Each section gets its own roof mesh — no floating edges over recesses
+                    const OH = OVERHANG;
+                    interface RoofRect { x0:number; z0:number; x1:number; z1:number; ohL:number; ohR:number; ohT:number; ohB:number }
+                    const sects: RoofRect[] = [];
+                    const activeR = recesses.find((rc: { hideBase?: boolean }) => rc.hideBase);
+
+                    if (!activeR) {
+                        sects.push({ x0:0, z0:0, x1:W, z1:L, ohL:OH, ohR:OH, ohT:OH, ohB:OH });
+                    } else {
+                        const rd = Number(activeR.depth), rw = Number(activeR.width), rx = Number(activeR.x);
+                        if (activeR.side === 'Este') {
+                            const cx = W - rd, cz0 = rx, cz1 = rx + rw;
+                            if (cz0 > 0.1) sects.push({ x0:0, z0:0, x1:W, z1:cz0, ohL:OH, ohR:OH, ohT:OH, ohB:0 });
+                            sects.push({ x0:0, z0:cz0, x1:cx, z1:cz1, ohL:OH, ohR:0, ohT:cz0<0.1?OH:0, ohB:cz1>L-0.1?OH:0 });
+                            if (cz1 < L - 0.1) sects.push({ x0:0, z0:cz1, x1:W, z1:L, ohL:OH, ohR:OH, ohT:0, ohB:OH });
+                        } else if (activeR.side === 'Oeste') {
+                            const cx = rd, cz0 = L - (rx + rw), cz1 = L - rx;
+                            if (cz0 > 0.1) sects.push({ x0:0, z0:0, x1:W, z1:cz0, ohL:OH, ohR:OH, ohT:OH, ohB:0 });
+                            sects.push({ x0:cx, z0:cz0, x1:W, z1:cz1, ohL:0, ohR:OH, ohT:cz0<0.1?OH:0, ohB:cz1>L-0.1?OH:0 });
+                            if (cz1 < L - 0.1) sects.push({ x0:0, z0:cz1, x1:W, z1:L, ohL:OH, ohR:OH, ohT:0, ohB:OH });
+                        } else if (activeR.side === 'Norte') {
+                            const cz = rd, cx0 = rx, cx1 = rx + rw;
+                            if (cx0 > 0.1) sects.push({ x0:0, z0:0, x1:cx0, z1:L, ohL:OH, ohR:0, ohT:OH, ohB:OH });
+                            sects.push({ x0:cx0, z0:cz, x1:cx1, z1:L, ohL:cx0<0.1?OH:0, ohR:cx1>W-0.1?OH:0, ohT:0, ohB:OH });
+                            if (cx1 < W - 0.1) sects.push({ x0:cx1, z0:0, x1:W, z1:L, ohL:0, ohR:OH, ohT:OH, ohB:OH });
+                        } else if (activeR.side === 'Sur') {
+                            const cz = L - rd, cx0 = W - (rx + rw), cx1 = W - rx;
+                            if (cx0 > 0.1) sects.push({ x0:0, z0:0, x1:cx0, z1:L, ohL:OH, ohR:0, ohT:OH, ohB:OH });
+                            sects.push({ x0:cx0, z0:0, x1:cx1, z1:cz, ohL:cx0<0.1?OH:0, ohR:cx1>W-0.1?OH:0, ohT:OH, ohB:0 });
+                            if (cx1 < W - 0.1) sects.push({ x0:cx1, z0:0, x1:W, z1:L, ohL:0, ohR:OH, ohT:OH, ohB:OH });
+                        }
+                        if (sects.length === 0) sects.push({ x0:0, z0:0, x1:W, z1:L, ohL:OH, ohR:OH, ohT:OH, ohB:OH });
                     }
 
-                    const roofGeom = new THREE.BufferGeometry();
-                    roofGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
-                    roofGeom.setIndex(indices);
-                    roofGeom.computeVertexNormals();
-
-                    roofMeshes.push(
-                        <mesh key="roof-clipped" geometry={roofGeom} position={[0, offset + BEAM_H, 0]} castShadow receiveShadow>
-                            <meshStandardMaterial color={ROOF_PLATE_COLOR} side={THREE.DoubleSide} roughness={0.7} />
-                        </mesh>
-                    );
+                    for (let si = 0; si < sects.length; si++) {
+                        const s = sects[si];
+                        const geo = makeRoofSection(s.x0, s.z0, s.x1, s.z1, s.ohL, s.ohR, s.ohT, s.ohB);
+                        if (geo) {
+                            roofMeshes.push(
+                                <mesh key={`roof-s${si}`} geometry={geo} position={[0, offset + BEAM_H, 0]} castShadow receiveShadow>
+                                    <meshStandardMaterial color={ROOF_PLATE_COLOR} side={THREE.DoubleSide} roughness={0.7} />
+                                </mesh>
+                            );
+                        }
+                    }
                 }
 
                 if (showBeams) {
