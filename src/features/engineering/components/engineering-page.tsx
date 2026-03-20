@@ -61,9 +61,13 @@ const NumberStepper = ({ label, value, onChange, min, max, step, unit, compact }
 
     const startLongPress = useCallback((action: () => void) => {
         action();
-        timeoutRef.current = setTimeout(() => {
-            intervalRef.current = setInterval(action, 80);
-        }, 400);
+        let speed = 120;
+        const accelerate = () => {
+            action();
+            speed = Math.max(25, speed - 8);
+            intervalRef.current = setTimeout(accelerate, speed) as unknown as ReturnType<typeof setInterval>;
+        };
+        timeoutRef.current = setTimeout(accelerate, 350);
     }, []);
 
     useEffect(() => stopLongPress, [stopLongPress]);

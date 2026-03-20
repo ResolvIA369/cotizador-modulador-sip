@@ -479,8 +479,8 @@ const HouseModel = ({ dimensions, openings, facadeConfigs, interiorWalls, showBe
                                 if (r.hideSideWall) {
                                     if (side === 'Norte') { if (isAtStart) hideL = true; if (isAtEnd) hideR = true; }
                                     else if (side === 'Sur') { if (isAtStart) hideR = true; if (isAtEnd) hideL = true; }
-                                    else if (side === 'Este') { if (isAtStart) hideL = true; if (isAtEnd) hideR = true; }
-                                    else if (side === 'Oeste') { if (isAtStart) hideL = true; if (isAtEnd) hideR = true; }
+                                    else if (side === 'Este') { if (isAtStart) hideR = true; if (isAtEnd) hideL = true; }
+                                    else if (side === 'Oeste') { if (isAtStart) hideR = true; if (isAtEnd) hideL = true; }
                                 }
 
                                 // Calculate heights for hall walls using global point projector

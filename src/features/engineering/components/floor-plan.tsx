@@ -42,9 +42,13 @@ const RangeControl = ({ label, value, onChange, min, max, step, unit }: RangeCon
 
     const startLongPress = React.useCallback((action: () => void) => {
         action();
-        timeoutRef.current = setTimeout(() => {
-            intervalRef.current = setInterval(action, 80);
-        }, 400);
+        let speed = 120;
+        const accelerate = () => {
+            action();
+            speed = Math.max(25, speed - 8);
+            intervalRef.current = setTimeout(accelerate, speed) as unknown as ReturnType<typeof setInterval>;
+        };
+        timeoutRef.current = setTimeout(accelerate, 350);
     }, []);
 
     React.useEffect(() => stopLongPress, [stopLongPress]);
@@ -1276,9 +1280,9 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                                     if (!wall) return null;
                                     return (
                                         <div className="space-y-2">
-                                            <RangeControl label="Largo" value={(wall as any).length || 0} onChange={(v) => updateInteriorWall(activeInteriorWallId, { length: v })} min={0.5} max={15} step={0.1} unit="m" />
-                                            <RangeControl label="Pos. X" value={(wall as any).x || 0} onChange={(v) => updateInteriorWall(activeInteriorWallId, { x: v })} min={0} max={15} step={0.1} unit="m" />
-                                            <RangeControl label="Pos. Y" value={(wall as any).y || 0} onChange={(v) => updateInteriorWall(activeInteriorWallId, { y: v })} min={0} max={20} step={0.1} unit="m" />
+                                            <RangeControl label="Largo" value={(wall as any).length || 0} onChange={(v) => updateInteriorWall(activeInteriorWallId, { length: v })} min={0.5} max={15} step={0.01} unit="m" />
+                                            <RangeControl label="Pos. X" value={(wall as any).x || 0} onChange={(v) => updateInteriorWall(activeInteriorWallId, { x: v })} min={0} max={15} step={0.01} unit="m" />
+                                            <RangeControl label="Pos. Y" value={(wall as any).y || 0} onChange={(v) => updateInteriorWall(activeInteriorWallId, { y: v })} min={0} max={20} step={0.01} unit="m" />
                                             <div className="grid grid-cols-2 gap-1.5 pt-1">
                                                 <button
                                                     onClick={() => updateInteriorWall(activeInteriorWallId, { isVertical: !(wall as any).isVertical })}
@@ -1337,10 +1341,10 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                                     if (!wall) return null;
                                     return (
                                         <div className="space-y-2">
-                                            <RangeControl label="X Ini" value={(wall as any).x1} onChange={(v) => updateWall(activeId, { x1: v })} min={-20} max={20} step={0.1} unit="m" />
-                                            <RangeControl label="Y Ini" value={(wall as any).y1} onChange={(v) => updateWall(activeId, { y1: v })} min={-20} max={20} step={0.1} unit="m" />
-                                            <RangeControl label="X Fin" value={(wall as any).x2} onChange={(v) => updateWall(activeId, { x2: v })} min={-20} max={20} step={0.1} unit="m" />
-                                            <RangeControl label="Y Fin" value={(wall as any).y2} onChange={(v) => updateWall(activeId, { y2: v })} min={-20} max={20} step={0.1} unit="m" />
+                                            <RangeControl label="X Ini" value={(wall as any).x1} onChange={(v) => updateWall(activeId, { x1: v })} min={-20} max={20} step={0.01} unit="m" />
+                                            <RangeControl label="Y Ini" value={(wall as any).y1} onChange={(v) => updateWall(activeId, { y1: v })} min={-20} max={20} step={0.01} unit="m" />
+                                            <RangeControl label="X Fin" value={(wall as any).x2} onChange={(v) => updateWall(activeId, { x2: v })} min={-20} max={20} step={0.01} unit="m" />
+                                            <RangeControl label="Y Fin" value={(wall as any).y2} onChange={(v) => updateWall(activeId, { y2: v })} min={-20} max={20} step={0.01} unit="m" />
                                         </div>
                                     );
                                 })()}
@@ -1364,9 +1368,9 @@ const FloorPlan = ({ hideUI, isPrint, isExpanded }: FloorPlanProps) => {
                                     </div>
                                     {!isMinimized && (
                                         <div className="p-4 pt-2 space-y-2">
-                                            <RangeControl label="Posicion" value={r.x} onChange={(v) => updateRecess(r.id, { x: v })} min={0} max={maxW - r.width} step={0.1} unit="m" />
-                                            <RangeControl label="Ancho" value={r.width} onChange={(v) => updateRecess(r.id, { width: v })} min={0.5} max={maxW} step={0.1} unit="m" />
-                                            <RangeControl label="Fondo" value={r.depth} onChange={(v) => updateRecess(r.id, { depth: v })} min={0.5} max={maxD * 0.8} step={0.1} unit="m" />
+                                            <RangeControl label="Posicion" value={r.x} onChange={(v) => updateRecess(r.id, { x: v })} min={0} max={maxW - r.width} step={0.01} unit="m" />
+                                            <RangeControl label="Ancho" value={r.width} onChange={(v) => updateRecess(r.id, { width: v })} min={0.5} max={maxW} step={0.01} unit="m" />
+                                            <RangeControl label="Fondo" value={r.depth} onChange={(v) => updateRecess(r.id, { depth: v })} min={0.5} max={maxD * 0.8} step={0.01} unit="m" />
                                             <div className="flex justify-between items-center p-1.5 bg-slate-50 rounded-lg">
                                                 <span className="text-[9px] font-black text-slate-500 uppercase">Muro Base</span>
                                                 <button onClick={() => updateRecess(r.id, { hideBase: !r.hideBase })} className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase transition-all ${r.hideBase ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
