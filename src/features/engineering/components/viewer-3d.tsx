@@ -488,18 +488,18 @@ const HouseModel = ({ dimensions, openings, facadeConfigs, interiorWalls, showBe
                                 if (side === 'Norte') {
                                     hB1_top = getPointHeight(r.x, r.depth); hB2_top = getPointHeight(r.x + r.width, r.depth);
                                     hL1_top = getPointHeight(r.x, 0); hL2_top = getPointHeight(r.x, r.depth);
-                                    hR1_top = getPointHeight(r.x + r.width, 0); hR2_top = getPointHeight(r.x + r.width, r.depth);
+                                    hR1_top = getPointHeight(r.x + r.width, r.depth); hR2_top = getPointHeight(r.x + r.width, 0);
                                 } else if (side === 'Sur') {
                                     hB1_top = getPointHeight(width - r.x, length - r.depth); hB2_top = getPointHeight(width - (r.x + r.width), length - r.depth);
                                     hL1_top = getPointHeight(width - (r.x + r.width), length); hL2_top = getPointHeight(width - (r.x + r.width), length - r.depth);
-                                    hR1_top = getPointHeight(width - r.x, length); hR2_top = getPointHeight(width - r.x, length - r.depth);
+                                    hR1_top = getPointHeight(width - r.x, length - r.depth); hR2_top = getPointHeight(width - r.x, length);
                                 } else if (side === 'Oeste') {
                                     hB1_top = getPointHeight(r.depth, length - r.x); hB2_top = getPointHeight(r.depth, length - (r.x + r.width));
-                                    hL1_top = getPointHeight(0, length - (r.x + r.width)); hL2_top = getPointHeight(r.depth, length - (r.x + r.width));
+                                    hL1_top = getPointHeight(r.depth, length - (r.x + r.width)); hL2_top = getPointHeight(0, length - (r.x + r.width));
                                     hR1_top = getPointHeight(0, length - r.x); hR2_top = getPointHeight(r.depth, length - r.x);
                                 } else { // Este
                                     hB1_top = getPointHeight(width - r.depth, r.x); hB2_top = getPointHeight(width - r.depth, r.x + r.width);
-                                    hL1_top = getPointHeight(width, r.x + r.width); hL2_top = getPointHeight(width - r.depth, r.x + r.width);
+                                    hL1_top = getPointHeight(width - r.depth, r.x + r.width); hL2_top = getPointHeight(width, r.x + r.width);
                                     hR1_top = getPointHeight(width, r.x); hR2_top = getPointHeight(width - r.depth, r.x);
                                 }
 
@@ -636,9 +636,37 @@ const HouseModel = ({ dimensions, openings, facadeConfigs, interiorWalls, showBe
 
                 if (showRoofPlates) {
                     // ROBUST GRID-BASED ROOF that follows any irregular shape
-                    const resolution = 0.1; // Increased precision (10cm)
+                    const resolution = 0.1; // 10cm precision
                     const rows = Math.ceil(L / resolution);
                     const cols = Math.ceil(W / resolution);
+
+                    // Compute inner corners of recesses for roof hip effect
+                    const innerCorners: Array<{ cx: number; cz: number; fade: number }> = [];
+                    for (const r of recesses) {
+                        if (!r.hideBase) continue;
+                        const rd = Number(r.depth), rw = Number(r.width), rx = Number(r.x);
+                        const isAtStart = rx < 0.1;
+                        const isAtEnd = rx + rw > (r.side === 'Norte' || r.side === 'Sur' ? W : L) - 0.1;
+                        const fade = Math.min(rd, rw) * 0.6;
+
+                        if (r.side === 'Este') {
+                            const bx = W - rd;
+                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: bx, cz: rx, fade });
+                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: bx, cz: rx + rw, fade });
+                        } else if (r.side === 'Oeste') {
+                            const bx = rd;
+                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: bx, cz: L - rx, fade });
+                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: bx, cz: L - (rx + rw), fade });
+                        } else if (r.side === 'Norte') {
+                            const bz = rd;
+                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: rx, cz: bz, fade });
+                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: rx + rw, cz: bz, fade });
+                        } else if (r.side === 'Sur') {
+                            const bz = L - rd;
+                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: W - (rx + rw), cz: bz, fade });
+                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: W - rx, cz: bz, fade });
+                        }
+                    }
 
                     const vertices: number[] = [];
                     const indices: number[] = [];
@@ -647,15 +675,29 @@ const HouseModel = ({ dimensions, openings, facadeConfigs, interiorWalls, showBe
                         for (let i = 0; i <= cols; i++) {
                             const gx = Math.min(W, i * resolution);
                             const gz = Math.min(L, j * resolution);
-                            // Clamp height for vertices in recess areas to prevent roof overhang
-                            const h = isInside(gx, gz) ? getPointHeight(gx, gz) : minBaseH;
+                            let h = getPointHeight(gx, gz);
+
+                            if (!isInside(gx, gz)) {
+                                h = minBaseH;
+                            } else {
+                                // Hip effect: slope roof down near inner corners of recesses
+                                for (const corner of innerCorners) {
+                                    const dx = gx - corner.cx;
+                                    const dz = gz - corner.cz;
+                                    const dist = Math.sqrt(dx * dx + dz * dz);
+                                    if (dist < corner.fade) {
+                                        const t = dist / corner.fade;
+                                        h = Math.min(h, minBaseH + (h - minBaseH) * t);
+                                    }
+                                }
+                            }
+
                             vertices.push(gx, h, gz);
                         }
                     }
 
                     for (let j = 0; j < rows; j++) {
                         for (let i = 0; i < cols; i++) {
-                            // Check all 4 corners of the tile to prevent tiles from extending into recesses
                             const x0 = Math.min(W, i * resolution);
                             const x1 = Math.min(W, (i + 1) * resolution);
                             const z0 = Math.min(L, j * resolution);
