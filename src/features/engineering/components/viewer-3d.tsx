@@ -635,74 +635,55 @@ const HouseModel = ({ dimensions, openings, facadeConfigs, interiorWalls, showBe
                 };
 
                 if (showRoofPlates) {
-                    // ROBUST GRID-BASED ROOF that follows any irregular shape
-                    const resolution = 0.1; // 10cm precision
-                    const rows = Math.ceil(L / resolution);
-                    const cols = Math.ceil(W / resolution);
+                    const resolution = 0.1;
+                    const OVERHANG = 0.3; // 30cm eave overhang
 
-                    // Compute inner corners of recesses for roof hip effect
-                    const innerCorners: Array<{ cx: number; cz: number; fade: number }> = [];
-                    for (const r of recesses) {
-                        if (!r.hideBase) continue;
-                        const rd = Number(r.depth), rw = Number(r.width), rx = Number(r.x);
-                        const isAtStart = rx < 0.1;
-                        const isAtEnd = rx + rw > (r.side === 'Norte' || r.side === 'Sur' ? W : L) - 0.1;
-                        const fade = Math.min(rd, rw) * 0.6;
+                    // Roof grid extends beyond walls for eave overhang
+                    const roofX0 = -OVERHANG;
+                    const roofZ0 = -OVERHANG;
+                    const roofX1 = W + OVERHANG;
+                    const roofZ1 = L + OVERHANG;
+                    const cols = Math.ceil((roofX1 - roofX0) / resolution);
+                    const rows = Math.ceil((roofZ1 - roofZ0) / resolution);
 
-                        if (r.side === 'Este') {
-                            const bx = W - rd;
-                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: bx, cz: rx, fade });
-                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: bx, cz: rx + rw, fade });
-                        } else if (r.side === 'Oeste') {
-                            const bx = rd;
-                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: bx, cz: L - rx, fade });
-                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: bx, cz: L - (rx + rw), fade });
-                        } else if (r.side === 'Norte') {
-                            const bz = rd;
-                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: rx, cz: bz, fade });
-                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: rx + rw, cz: bz, fade });
-                        } else if (r.side === 'Sur') {
-                            const bz = L - rd;
-                            if (!isAtStart || !r.hideSideWall) innerCorners.push({ cx: W - (rx + rw), cz: bz, fade });
-                            if (!isAtEnd || !r.hideSideWall) innerCorners.push({ cx: W - rx, cz: bz, fade });
+                    // isInsideRoof: like isInside but allows overhang past exterior walls
+                    const isInsideRoof = (ax: number, az: number): boolean => {
+                        if (ax < roofX0 - 0.01 || ax > roofX1 + 0.01 || az < roofZ0 - 0.01 || az > roofZ1 + 0.01) return false;
+                        for (const r of recesses) {
+                            if (!r.hideBase) continue;
+                            let insideR = false;
+                            const rw = r.width, rd = r.depth;
+                            if (r.side === 'Norte') insideR = (ax >= r.x - 0.1 && ax <= r.x + rw + 0.1 && az <= rd + 0.1);
+                            else if (r.side === 'Sur') insideR = (ax >= W - (r.x + rw) - 0.1 && ax <= W - r.x + 0.1 && az >= L - rd - 0.1);
+                            else if (r.side === 'Este') insideR = (ax >= W - rd - 0.1 && az >= r.x - 0.1 && az <= r.x + rw + 0.1);
+                            else if (r.side === 'Oeste') insideR = (ax <= rd + 0.1 && az >= L - (r.x + rw) - 0.1 && az <= L - r.x + 0.1);
+                            if (insideR) return false;
                         }
-                    }
+                        return true;
+                    };
 
                     const vertices: number[] = [];
                     const indices: number[] = [];
 
                     for (let j = 0; j <= rows; j++) {
                         for (let i = 0; i <= cols; i++) {
-                            const gx = Math.min(W, i * resolution);
-                            const gz = Math.min(L, j * resolution);
-                            let h = getPointHeight(gx, gz);
-
-                            if (!isInside(gx, gz)) {
-                                h = minBaseH;
-                            } else {
-                                // Hip effect: slope roof down near inner corners of recesses
-                                for (const corner of innerCorners) {
-                                    const dx = gx - corner.cx;
-                                    const dz = gz - corner.cz;
-                                    const dist = Math.sqrt(dx * dx + dz * dz);
-                                    if (dist < corner.fade) {
-                                        const t = dist / corner.fade;
-                                        h = Math.min(h, minBaseH + (h - minBaseH) * t);
-                                    }
-                                }
-                            }
-
+                            const gx = roofX0 + Math.min(roofX1 - roofX0, i * resolution);
+                            const gz = roofZ0 + Math.min(roofZ1 - roofZ0, j * resolution);
+                            // Clamp to house bounds for height calculation (overhang follows wall edge height)
+                            const hx = Math.max(0, Math.min(W, gx));
+                            const hz = Math.max(0, Math.min(L, gz));
+                            const h = getPointHeight(hx, hz);
                             vertices.push(gx, h, gz);
                         }
                     }
 
                     for (let j = 0; j < rows; j++) {
                         for (let i = 0; i < cols; i++) {
-                            const x0 = Math.min(W, i * resolution);
-                            const x1 = Math.min(W, (i + 1) * resolution);
-                            const z0 = Math.min(L, j * resolution);
-                            const z1 = Math.min(L, (j + 1) * resolution);
-                            if (isInside(x0, z0) && isInside(x1, z0) && isInside(x0, z1) && isInside(x1, z1)) {
+                            const x0 = roofX0 + i * resolution;
+                            const x1 = roofX0 + (i + 1) * resolution;
+                            const z0 = roofZ0 + j * resolution;
+                            const z1 = roofZ0 + (j + 1) * resolution;
+                            if (isInsideRoof(x0, z0) && isInsideRoof(x1, z0) && isInsideRoof(x0, z1) && isInsideRoof(x1, z1)) {
                                 const a = j * (cols + 1) + i;
                                 const b = j * (cols + 1) + (i + 1);
                                 const c = (j + 1) * (cols + 1) + i;
