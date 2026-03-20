@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { PenTool, Calculator, Users, Settings, Download, Mail, Code2, type LucideProps } from 'lucide-react';
+import { PenTool, Calculator, Users, Settings, Download, Mail, Code2, FileSearch, type LucideProps } from 'lucide-react';
 import { PROJECT_LOGO } from '@/shared/lib/constants';
 import clsx from 'clsx';
 
@@ -59,6 +59,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           {/* Navigation */}
           <nav className="flex items-center gap-1 bg-slate-800/50 p-1 rounded-lg">
             <NavItem href="/engineering" icon={PenTool} label="Ingenieria" active={currentPath.includes('engineering')} />
+            <NavItem href="/plan-analyzer" icon={FileSearch} label="Desde Plano" active={currentPath.includes('plan-analyzer')} />
             <NavItem href="/budget" icon={Calculator} label="Presupuesto" active={currentPath.includes('budget')} />
             <NavItem href="/crm" icon={Users} label="CRM" active={currentPath.includes('crm')} />
             <NavItem href="/admin" icon={Settings} label="Admin" active={currentPath.includes('admin')} />
