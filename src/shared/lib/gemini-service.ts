@@ -1,4 +1,4 @@
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
 
 export interface GeminiExtractionResult {
   proyecto: { nombre: string; superficie_total: number; proyectista: string; fecha: string };
@@ -91,7 +91,7 @@ export async function analizarPlano(pdfFile: File): Promise<GeminiExtractionResu
         { inline_data: { mime_type: 'application/pdf', data: base64 } },
         { text: PROMPT_EXTRACCION }
       ]}],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json' }
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
     })
   });
 
