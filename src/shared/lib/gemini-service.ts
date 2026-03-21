@@ -1,4 +1,4 @@
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 export interface GeminiExtractionResult {
   proyecto: { nombre: string; superficie_total: number; proyectista: string; fecha: string };
@@ -97,8 +97,14 @@ export async function analizarPlano(pdfFile: File): Promise<GeminiExtractionResu
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    console.error('[Gemini] API error:', response.status, err);
-    const code = err?.error?.status || (response.status === 429 ? 'RATE_LIMIT_EXCEEDED' : 'INTERNAL');
+    const errMsg = err?.error?.message || '';
+    const errStatus = err?.error?.status || '';
+    console.error('[Gemini] API error:', response.status, errStatus, errMsg, JSON.stringify(err));
+    // Show the actual Google error to the user for debugging
+    if (errMsg) {
+      throw new Error(`Google API (${response.status}): ${errMsg}`);
+    }
+    const code = errStatus || (response.status === 429 ? 'RATE_LIMIT_EXCEEDED' : 'INTERNAL');
     throw new Error(code);
   }
 

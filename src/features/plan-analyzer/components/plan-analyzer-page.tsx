@@ -92,7 +92,7 @@ const PlanAnalyzerPage = () => {
       setStep('review');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'INTERNAL';
-      setError(ERROR_MESSAGES[msg] || ERROR_MESSAGES['INTERNAL']);
+      setError(ERROR_MESSAGES[msg] || msg || 'Error desconocido');
       setStep('upload');
     } finally {
       clearInterval(interval);
