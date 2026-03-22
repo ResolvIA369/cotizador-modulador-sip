@@ -141,8 +141,21 @@ const PlanAnalyzerPage = () => {
     const baseH = d.altura_minima > 0 ? d.altura_minima : 2.44;
     const ridgeH = d.altura_maxima > baseH ? d.altura_maxima : baseH;
 
+    // Use extracted dimensions, but if superficie_total is larger than ancho*largo,
+    // adjust dimensions to match the real surface area from the blueprint
+    let finalWidth = d.ancho;
+    let finalLength = d.largo;
+    const calcArea = d.ancho * d.largo;
+    const realArea = data.proyecto.superficie_total;
+    if (realArea > 0 && calcArea > 0 && Math.abs(realArea - calcArea) > 1) {
+      // Scale proportionally to match the real surface area
+      const scale = Math.sqrt(realArea / calcArea);
+      finalWidth = parseFloat((d.ancho * scale).toFixed(2));
+      finalLength = parseFloat((d.largo * scale).toFixed(2));
+    }
+
     // Set dimensions
-    s.setDimensions({ width: d.ancho, length: d.largo, height: baseH, ridgeHeight: ridgeH });
+    s.setDimensions({ width: finalWidth, length: finalLength, height: baseH, ridgeHeight: ridgeH });
 
     // Set project info
     s.setProjectData({
