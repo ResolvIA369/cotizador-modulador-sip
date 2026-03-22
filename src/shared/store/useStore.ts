@@ -96,6 +96,9 @@ interface StoreState {
   // --- SAVED DESIGNS ---
   savedDesigns: SavedDesign[];
 
+  // --- PLAN EXTRACTION (Gemini) ---
+  lastExtraction: unknown | null;
+
   // --- CLIPBOARD ---
   clipboard: Clipboard | null;
   activeInteriorWallId: string | null;
@@ -182,6 +185,9 @@ interface StoreState {
   saveDesign: (name: string, area: number, totalPanels: number) => void;
   loadDesign: (id: string) => void;
   deleteDesign: (id: string) => void;
+
+  // --- PLAN EXTRACTION ---
+  setLastExtraction: (data: unknown | null) => void;
 
   resetProject: () => void;
 }
@@ -281,6 +287,9 @@ export const useStore = create<StoreState>()(
 
       // --- SAVED DESIGNS ---
       savedDesigns: [],
+
+      // --- PLAN EXTRACTION ---
+      lastExtraction: null,
 
       // --- ENGINEERING STATE ---
       dimensions: {
@@ -750,6 +759,9 @@ export const useStore = create<StoreState>()(
       deleteDesign: (id: string) => set(state => ({
         savedDesigns: state.savedDesigns.filter(d => d.id !== id)
       })),
+
+      // --- PLAN EXTRACTION ---
+      setLastExtraction: (data: unknown | null) => set({ lastExtraction: data }),
 
       resetProject: () => set({
         dimensions: { width: 6, length: 8, height: 2.44, ridgeHeight: 3.5 },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Upload, FileText, Loader2, AlertTriangle, CheckCircle2,
   ChevronDown, ChevronUp, Plus, Trash2, RotateCcw, Download,
@@ -62,16 +62,24 @@ const LOADING_MSGS = [
    MAIN COMPONENT
    ══════════════════════════════════════ */
 const PlanAnalyzerPage = () => {
-  const [step, setStep] = useState<'upload' | 'loading' | 'review' | 'results'>('upload');
+  // Restore from store if available (survives navigation)
+  const storedExtraction = useStore(s => s.lastExtraction) as GeminiExtractionResult | null;
+  const setLastExtraction = useStore(s => s.setLastExtraction);
+
+  const [step, setStep] = useState<'upload' | 'loading' | 'review' | 'results'>(storedExtraction ? 'review' : 'upload');
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState(0);
-  const [data, setData] = useState<GeminiExtractionResult | null>(null);
+  const [data, setData] = useState<GeminiExtractionResult | null>(storedExtraction);
   const [results, setResults] = useState<ReturnType<typeof calcularDesdeExtraccion> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const store = useStore();
+
+  // Keep store in sync when data changes
+  useEffect(() => {
+    if (data) setLastExtraction(data);
+  }, [data, setLastExtraction]);
 
   /* ── File handling ── */
   const handleFile = useCallback((f: File) => {
@@ -112,28 +120,29 @@ const PlanAnalyzerPage = () => {
   };
 
   /* ── Reset ── */
-  const reset = () => { setStep('upload'); setFile(null); setData(null); setResults(null); setError(null); };
+  const reset = () => { setStep('upload'); setFile(null); setData(null); setResults(null); setError(null); setLastExtraction(null); };
 
-  /* ── Load into store and go to budget ── */
-  const loadToStoreAndGoBudget = () => {
+  /* ── Load extracted data into the main store ── */
+  const loadToStore = () => {
     if (!data) return;
+    const s = useStore.getState();
     const d = data.dimensiones_generales;
     const baseH = d.altura_minima > 0 ? d.altura_minima : 2.44;
     const ridgeH = d.altura_maxima > baseH ? d.altura_maxima : baseH;
 
     // Set dimensions
-    store.setDimensions({ width: d.ancho, length: d.largo, height: baseH, ridgeHeight: ridgeH });
+    s.setDimensions({ width: d.ancho, length: d.largo, height: baseH, ridgeHeight: ridgeH });
 
     // Set project info
-    store.setProjectData({ clientName: data.proyecto.nombre, location: data.proyecto.proyectista, date: data.proyecto.fecha });
+    s.setProjectData({ clientName: data.proyecto.nombre, location: data.proyecto.proyectista, date: data.proyecto.fecha });
 
     // Clear existing walls and openings
-    store.interiorWalls.forEach(w => store.removeWall(w.id));
-    store.openings.forEach(o => store.removeOpening(o.id));
+    useStore.getState().interiorWalls.forEach(w => s.removeWall(w.id));
+    useStore.getState().openings.forEach(o => s.removeOpening(o.id));
 
     // Add interior walls
     data.muros_interiores.forEach((m, i) => {
-      store.addWall('interior', {
+      s.addWall('interior', {
         x: (i + 1) * (d.ancho / (data.muros_interiores.length + 1)),
         y: 0,
         length: m.largo,
@@ -142,30 +151,28 @@ const PlanAnalyzerPage = () => {
     });
 
     // Add openings distributed across facades
-    const sides: FacadeSide[] = ['Norte', 'Sur', 'Este', 'Oeste'];
+    const facadeSides: FacadeSide[] = ['Norte', 'Sur', 'Este', 'Oeste'];
     data.aberturas.forEach((ab) => {
-      // Try to match muro_asociado to a facade side
       let side: FacadeSide = 'Norte';
       const muro = ab.muro_asociado.toLowerCase();
       if (muro.includes('norte') || muro.includes('front')) side = 'Norte';
       else if (muro.includes('sur') || muro.includes('poster') || muro.includes('back')) side = 'Sur';
       else if (muro.includes('este') || muro.includes('east') || muro.includes('derech')) side = 'Este';
       else if (muro.includes('oeste') || muro.includes('west') || muro.includes('izquier')) side = 'Oeste';
-      else side = sides[Math.floor(Math.random() * 4)];
+      else side = facadeSides[Math.floor(Math.random() * 4)];
 
       for (let q = 0; q < ab.cantidad; q++) {
-        store.addOpening(side, ab.tipo === 'door' ? 'door' : 'window');
-        // Update the last added opening with correct dimensions
+        s.addOpening(side, ab.tipo === 'door' ? 'door' : 'window');
         const lastOpening = useStore.getState().openings[useStore.getState().openings.length - 1];
         if (lastOpening) {
-          store.updateOpening(lastOpening.id, { width: ab.ancho, height: ab.alto, x: 0.5 + q * (ab.ancho + 0.3) });
+          s.updateOpening(lastOpening.id, { width: ab.ancho, height: ab.alto, x: 0.5 + q * (ab.ancho + 0.3) });
         }
       }
     });
-
-    // Navigate to budget
-    router.push('/budget');
   };
+
+  const goToBudget = () => { loadToStore(); router.push('/budget'); };
+  const goToEngineering = () => { loadToStore(); router.push('/engineering'); };
 
   /* ── Update helpers ── */
   const updateData = (patch: Partial<GeminiExtractionResult>) => setData(prev => prev ? { ...prev, ...patch } : prev);
@@ -412,8 +419,11 @@ const PlanAnalyzerPage = () => {
             <button onClick={calculate} className="flex-1 flex items-center justify-center gap-3 py-4 bg-cyan-500 hover:bg-cyan-400 text-white rounded-2xl text-sm font-black uppercase tracking-wider transition-colors">
               <CheckCircle2 size={18} /> Ver Resumen
             </button>
-            <button onClick={loadToStoreAndGoBudget} className="flex-1 flex items-center justify-center gap-3 py-4 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl text-sm font-black uppercase tracking-wider transition-colors shadow-lg shadow-orange-500/20">
-              <FileText size={18} /> Ir a Presupuesto
+            <button onClick={goToEngineering} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl text-sm font-black uppercase tracking-wider transition-colors">
+              <Ruler size={18} /> Ver Plano
+            </button>
+            <button onClick={goToBudget} className="flex-1 flex items-center justify-center gap-3 py-4 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl text-sm font-black uppercase tracking-wider transition-colors shadow-lg shadow-orange-500/20">
+              <FileText size={18} /> Presupuesto
             </button>
           </div>
         </div>
@@ -500,9 +510,14 @@ const PlanAnalyzerPage = () => {
           )}
 
           {/* Actions */}
-          <button onClick={loadToStoreAndGoBudget} className="w-full flex items-center justify-center gap-3 py-4 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl text-sm font-black uppercase tracking-wider transition-colors shadow-lg shadow-orange-500/20">
-            <FileText size={18} /> Ir a Presupuesto Completo
-          </button>
+          <div className="flex gap-3">
+            <button onClick={goToEngineering} className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl text-sm font-black uppercase tracking-wider transition-colors">
+              <Ruler size={18} /> Ver Plano 2D/3D
+            </button>
+            <button onClick={goToBudget} className="flex-1 flex items-center justify-center gap-3 py-4 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl text-sm font-black uppercase tracking-wider transition-colors shadow-lg shadow-orange-500/20">
+              <FileText size={18} /> Ir a Presupuesto
+            </button>
+          </div>
           <div className="flex gap-3">
             <button onClick={() => setStep('review')} className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-600 transition-colors">
               <RotateCcw size={14} /> Editar Datos
